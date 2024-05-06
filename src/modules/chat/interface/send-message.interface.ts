@@ -1,3 +1,3 @@
 export interface ISendMessage {
-  delivered: boolean;
+  [x: string]: boolean;
 }

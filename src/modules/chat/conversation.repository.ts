@@ -7,14 +7,18 @@ export class ConversationRepository {
 
   async findConversationsByProfileId(profileId: string) {
     return await this.prismaService.conversation.findMany({
-      where: { profiles: { some: { id: profileId } } },
+      where: { profiles: { some: { profile: { id: profileId } } } },
       select: {
         id: true,
         messages: { take: 1, select: { content: true, createdAt: true } },
         createdAt: true,
         profiles: {
-          where: { NOT: { id: profileId } },
-          select: { id: true, name: true, imageProfileUrl: true },
+          where: { profile: { NOT: { id: profileId } } },
+          select: {
+            profile: {
+              select: { id: true, name: true, imageProfileUrl: true },
+            },
+          },
           take: 1,
         },
       },
@@ -25,7 +29,7 @@ export class ConversationRepository {
     return await this.prismaService.conversation.findFirst({
       where: {
         profiles: {
-          some: { id: { in: [profileId1, profileId2] } },
+          some: { profile: { id: { in: [profileId1, profileId2] } } },
         },
       },
       select: { id: true, createdAt: true },
@@ -42,7 +46,9 @@ export class ConversationRepository {
   async create(profileId1: string, profileId2: string) {
     return await this.prismaService.conversation.create({
       data: {
-        profiles: { connect: [{ id: profileId1 }, { id: profileId2 }] },
+        profiles: {
+          create: [{ profileId: profileId1 }, { profileId: profileId2 }],
+        },
       },
       select: { id: true, createdAt: true },
     });

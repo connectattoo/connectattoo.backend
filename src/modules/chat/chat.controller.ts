@@ -52,7 +52,7 @@ export class ChatController {
     @Req() req: ISignedRequest,
     @Param('conversationId') conversationId: string,
     @Body('message') message: string,
-  ): Promise<ISendMessage> {
+  ): Promise<ISendMessage[]> {
     return await this.chatService.sendMessage(
       req.user.profileId,
       conversationId,

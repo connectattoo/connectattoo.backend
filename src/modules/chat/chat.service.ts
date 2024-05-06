@@ -22,20 +22,23 @@ export class ChatService {
     const conversations =
       await this.conversationRepository.findConversationsByProfileId(profileId);
 
-    return conversations.map(
-      ({ profiles: [profile], messages: [lastMessage], ...data }) => ({
-        ...data,
-        lastMessage,
-        profile,
-      }),
-    );
+    return conversations.map((data) => ({
+      id: data.id,
+      createdAt: data.createdAt,
+      lastMessage: data.messages[0],
+      profile: {
+        id: data.profiles[0].profile.id,
+        name: data.profiles[0].profile.name,
+        imageProfileUrl: data.profiles[0].profile.imageProfileUrl,
+      },
+    }));
   }
 
   async sendMessage(
     fromId: string,
     conversationId: string,
     content: string,
-  ): Promise<ISendMessage> {
+  ): Promise<ISendMessage[]> {
     const conversation =
       await this.conversationRepository.findConversationById(conversationId);
 
@@ -43,9 +46,9 @@ export class ChatService {
       throw new BadRequestException('Conversation not found'); //static
     }
 
-    const toIds = conversation.profiles
-      .filter(({ id }) => id !== fromId)
-      .map(({ id }) => id);
+    const toIds = conversation.profiles.map(({ profileId }) => profileId);
+
+    console.log(toIds);
 
     const message = await this.messageRepository.create(
       fromId,
@@ -53,14 +56,14 @@ export class ChatService {
       content,
     );
 
-    const emit = this.eventEmitter.emit(toIds, {
-      fromId,
-      conversationId,
-      content,
-      createdAt: message.createdAt.toISOString(),
-    } as IMessagePayload);
-
-    return { delivered: emit };
+    return toIds.map((toId) => ({
+      [toId]: this.eventEmitter.emit(toId, {
+        fromId,
+        conversationId,
+        content,
+        createdAt: message.createdAt.toISOString(),
+      } as IMessagePayload),
+    }));
   }
 
   async createConversation(
