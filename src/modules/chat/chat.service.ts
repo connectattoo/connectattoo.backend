@@ -19,9 +19,13 @@ export class ChatService {
   ) {}
 
   async chats(profileId: string): Promise<IConversation[]> {
-    return await this.conversationRepository.findConversationsByProfileId(
-      profileId,
-    );
+    const conversations =
+      await this.conversationRepository.findConversationsByProfileId(profileId);
+
+    return conversations.map(({ profiles: [profile], ...data }) => ({
+      ...data,
+      profile,
+    }));
   }
 
   async sendMessage(

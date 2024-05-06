@@ -8,7 +8,15 @@ export class ConversationRepository {
   async findConversationsByProfileId(profileId: string) {
     return await this.prismaService.conversation.findMany({
       where: { profiles: { some: { id: profileId } } },
-      select: { id: true, createdAt: true },
+      select: {
+        id: true,
+        createdAt: true,
+        profiles: {
+          where: { NOT: { id: profileId } },
+          select: { id: true, name: true, imageProfileUrl: true },
+          take: 1,
+        },
+      },
     });
   }
 
@@ -19,6 +27,7 @@ export class ConversationRepository {
           some: { id: { in: [profileId1, profileId2] } },
         },
       },
+      select: { id: true, createdAt: true },
     });
   }
 
