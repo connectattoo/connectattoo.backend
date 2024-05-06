@@ -22,10 +22,13 @@ export class ChatService {
     const conversations =
       await this.conversationRepository.findConversationsByProfileId(profileId);
 
-    return conversations.map(({ profiles: [profile], ...data }) => ({
-      ...data,
-      profile,
-    }));
+    return conversations.map(
+      ({ profiles: [profile], messages: [lastMessage], ...data }) => ({
+        ...data,
+        lastMessage,
+        profile,
+      }),
+    );
   }
 
   async sendMessage(
@@ -37,7 +40,7 @@ export class ChatService {
       await this.conversationRepository.findConversationById(conversationId);
 
     if (!conversation) {
-      throw new BadRequestException('Conversation not found');
+      throw new BadRequestException('Conversation not found'); //static
     }
 
     const toIds = conversation.profiles
@@ -94,7 +97,7 @@ export class ChatService {
       await this.conversationRepository.findConversationById(conversationId);
 
     if (!conversation) {
-      throw new BadRequestException('Conversation not found');
+      throw new BadRequestException('Conversation not found'); //static
     }
 
     const findConversationPromise = this.messageRepository.findByConversationId(

@@ -10,6 +10,7 @@ export class ConversationRepository {
       where: { profiles: { some: { id: profileId } } },
       select: {
         id: true,
+        messages: { take: 1, select: { content: true, createdAt: true } },
         createdAt: true,
         profiles: {
           where: { NOT: { id: profileId } },
