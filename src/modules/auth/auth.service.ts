@@ -106,11 +106,11 @@ export class AuthService {
 
     await this.profileService.vinculateRandomTags(createdProfile.id);
 
-    // await this.mailService.sendConfirmationEmail(
-    //   createdUser.email,
-    //   createdProfile.name.split(' ')[0],
-    //   confirmationToken,
-    // );
+    await this.mailService.sendConfirmationEmail(
+      createdUser.email,
+      createdProfile.name.split(' ')[0],
+      confirmationToken,
+    );
 
     const payload: JwtAuthPayload = {
       userId: createdUser.id,

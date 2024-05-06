@@ -37,18 +37,4 @@ export class ConversationRepository {
       select: { id: true, createdAt: true },
     });
   }
-
-  async updateUnviewed(conversationId: string, profileId: string) {
-    return await this.prismaService.conversation.update({
-      where: { id: conversationId },
-      data: {
-        messages: {
-          updateMany: {
-            where: { fromId: profileId, viewed: false },
-            data: { viewed: true },
-          },
-        },
-      },
-    });
-  }
 }
