@@ -1,136 +1,245 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { MessageRepository } from './message.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { fromEvent, map } from 'rxjs';
+import { fromEvent, switchMap } from 'rxjs';
 import { IPagination } from '../../shared/interface/pagination.interface';
 import { ConversationRepository } from './conversation.repository';
 import { IMessagePayload } from './interface/message-payload.interface';
 import { IMessageEvent } from '../../shared/interface/message-event.interface';
 import { IRetrieveMessage } from './interface/retrieve-message.interface';
 import { IConversation } from './interface/conversation.interface';
-import { ISendMessage } from './interface/send-message.interface';
+import { IPostMessage } from './interface/post-message.interface';
+import { HistoryRepository } from './history.repository';
 
 @Injectable()
 export class ChatService {
   constructor(
     private messageRepository: MessageRepository,
     private conversationRepository: ConversationRepository,
+    private historyRepository: HistoryRepository,
     private eventEmitter: EventEmitter2,
   ) {}
 
   async chats(profileId: string): Promise<IConversation[]> {
-    const conversations =
-      await this.conversationRepository.findConversationsByProfileId(profileId);
+    const historys =
+      await this.historyRepository.findConversationsByProfileIdToChats(
+        profileId,
+      );
 
-    return conversations.map((data) => ({
-      id: data.id,
-      createdAt: data.createdAt,
-      lastMessage: data.messages[0],
-      profile: {
-        id: data.profiles[0].profile.id,
-        name: data.profiles[0].profile.name,
-        imageProfileUrl: data.profiles[0].profile.imageProfileUrl,
-      },
+    return historys.map((history) => ({
+      id: history.conversationId,
+      lastMessage: history.messages[0] ?? null,
+      participants: history.conversation.participants,
+      blocked: !!history.conversation.blockedBy.length,
     }));
   }
 
-  async sendMessage(
+  async postMessage(
     fromId: string,
     conversationId: string,
     content: string,
-  ): Promise<ISendMessage[]> {
+  ): Promise<IPostMessage> {
+    //encontra a conversa
     const conversation =
-      await this.conversationRepository.findConversationById(conversationId);
+      await this.conversationRepository.findConversationByIdAndProfileId(
+        conversationId,
+        fromId,
+      );
 
+    //verificação se a conversa existe
     if (!conversation) {
       throw new BadRequestException('Conversation not found'); //static
     }
 
-    const toIds = conversation.profiles.map(({ profileId }) => profileId);
+    // verifica se o historico de todos existem (caso ele tenha sido deletado)
+    const participantsWithoutHistory: string[] = [];
+    const sendEventToProfiles: string[] = conversation.historysConversation.map(
+      (history) => history.profileId,
+    );
+    const historyIdsToSaveMessage: string[] =
+      conversation.historysConversation.map(({ id }) => id);
+    // verifica se a lista de participantes é diferente de historicos de conversação
+    if (
+      conversation.historysConversation.length !==
+      conversation.participants.length
+    ) {
+      for (const participant of conversation.participants) {
+        //1. descobre qual é o historico faltando
+        const historyExists = conversation.historysConversation.some(
+          (history) => history.profileId === participant.id,
+        );
 
-    console.log(toIds);
+        //2.
+        if (!historyExists) {
+          //verifica se a conversa é bloqueada para o perfil com historico faltante
+          const verifyIfBlocked = await this.conversationRepository.isBlocked(
+            conversationId,
+            participant.id,
+          );
 
+          //se não estiver bloqueado, adiciona o historico faltante
+          if (!verifyIfBlocked) {
+            participantsWithoutHistory.push(participant.id);
+          }
+        }
+      }
+
+      //cria todos os historicos faltantes
+      if (participantsWithoutHistory.length) {
+        const historyIds = await this.historyRepository.createManyByProfileIds(
+          conversation.id,
+          participantsWithoutHistory,
+        );
+
+        //salva para enviar evento
+        sendEventToProfiles.push(...participantsWithoutHistory);
+        historyIdsToSaveMessage.push(...historyIds);
+      }
+    }
+
+    //cria a mensagem e vincular a mensagem a todos historicos
     const message = await this.messageRepository.create(
       fromId,
-      conversationId,
       content,
+      historyIdsToSaveMessage,
     );
 
-    return toIds.map((toId) => ({
-      [toId]: this.eventEmitter.emit(toId, {
-        fromId,
-        conversationId,
-        content,
-        createdAt: message.createdAt.toISOString(),
-      } as IMessagePayload),
-    }));
+    //emitir para todos listeners
+    return {
+      conversationId,
+      listeners: sendEventToProfiles.map((toId) => ({
+        [toId]: this.eventEmitter.emit(toId, {
+          fromId,
+          conversationId,
+          content,
+          createdAt: message.createdAt.toISOString(),
+        } as IMessagePayload),
+      })),
+    };
   }
 
   async createConversation(
-    profileId1: string,
-    profileId2: string,
+    profileId: string,
+    toId: string,
   ): Promise<IConversation> {
+    if (profileId === toId) {
+      throw new BadRequestException(
+        'Cannot start a conversation with yourself',
+      );
+    }
+    console.log(profileId, toId);
+
+    //TODO: validar se profile existe
     const conversation =
       await this.conversationRepository.findConversationByProfiles(
-        profileId1,
-        profileId2,
+        profileId,
+        toId,
       );
 
     if (conversation) return conversation;
 
-    return await this.conversationRepository.create(profileId1, profileId2);
+    return await this.conversationRepository.create(profileId, toId);
   }
 
   async receive(profileId: string) {
     return fromEvent(this.eventEmitter, profileId).pipe(
-      map(
-        (payload: IMessagePayload): IMessageEvent<IMessagePayload> => ({
-          data: payload,
-        }),
+      switchMap(
+        async (
+          payload: IMessagePayload,
+        ): Promise<IMessageEvent<IMessagePayload>> => {
+          //TODO: notification
+          return { data: payload };
+        },
       ),
     );
   }
 
   async retrieve(
-    fromId: string,
+    profileId: string,
     conversationId: string,
     pagination: IPagination,
   ): Promise<IRetrieveMessage[]> {
     const conversation =
-      await this.conversationRepository.findConversationById(conversationId);
+      await this.conversationRepository.findConversationByIdAndProfileId(
+        conversationId,
+        profileId,
+      );
 
     if (!conversation) {
       throw new BadRequestException('Conversation not found'); //static
     }
 
-    const findConversationPromise = this.messageRepository.findByConversationId(
+    const history =
+      await this.historyRepository.findUnblockedConversationByIdAndProfileId(
+        conversationId,
+        profileId,
+      );
+
+    if (!history) {
+      throw new BadRequestException('History not found');
+    }
+
+    await this.historyRepository.updateViewedById(history.id, true);
+
+    return await this.messageRepository.findManyByConversationId(
       conversationId,
       pagination,
     );
+  }
 
-    const updateUnviewedPromise = this.messageRepository.updateUnviewed(
-      conversationId,
-      fromId,
+  //se estiver com o chat aberto, precisa chamar essa rota para atualizar o visualizado
+  async forceUpdateViewed(profileId: string, conversationId: string) {
+    const history =
+      await this.historyRepository.findUnblockedConversationByIdAndProfileId(
+        conversationId,
+        profileId,
+      );
+
+    if (!history) {
+      throw new BadRequestException('History not found');
+    }
+
+    await this.historyRepository.updateViewedById(history.id, true);
+  }
+
+  async deleteConversation(profileId: string, conversationId: string) {
+    const history =
+      await this.historyRepository.findUnblockedConversationByIdAndProfileId(
+        conversationId,
+        profileId,
+      );
+
+    if (!history) {
+      throw new BadRequestException('History not found');
+    }
+
+    await this.historyRepository.deleteHistory(history.id);
+
+    return { deleted: true };
+  }
+
+  async blockConversation(
+    profileId: string,
+    conversationId: string,
+    block: boolean,
+  ) {
+    const history =
+      await this.historyRepository.findConversationByIdAndProfileId(
+        conversationId,
+        profileId,
+      );
+
+    if (!history) {
+      throw new BadRequestException('History not found');
+    }
+
+    await this.conversationRepository.updateBlockedById(
+      history.conversationId,
+      profileId,
+      block,
     );
 
-    const [messages] = await Promise.all([
-      findConversationPromise,
-      updateUnviewedPromise,
-    ]);
-
-    return messages;
-  }
-
-  deleteConversation(profileId: string, conversationId: string) {
-    throw new Error('Method not implemented.');
-  }
-
-  blockConversation(profileId: string, conversationId: string) {
-    throw new Error('Method not implemented.');
-  }
-
-  unblockConversation(profileId: string, conversationId: string) {
-    throw new Error('Method not implemented.');
+    return { blocked: true };
   }
 
   disableNotifications(profileId: string, conversationId: string) {

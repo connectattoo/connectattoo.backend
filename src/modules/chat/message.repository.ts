@@ -6,9 +6,12 @@ import { IPagination } from '../../shared/interface/pagination.interface';
 export class MessageRepository {
   constructor(private prismaService: PrismaService) {}
 
-  async findByConversationId(conversationId: string, pagination: IPagination) {
+  async findManyByConversationId(
+    conversationId: string,
+    pagination: IPagination,
+  ) {
     return await this.prismaService.message.findMany({
-      where: { conversationId },
+      where: { historyConversations: { every: { conversationId } } },
       skip: pagination.offset,
       take: pagination.limit,
       orderBy: { createdAt: 'desc' },
@@ -16,20 +19,19 @@ export class MessageRepository {
     });
   }
 
-  async updateUnviewed(conversationId: string, fromId: string) {
-    return await this.prismaService.message.updateMany({
-      where: {
-        conversationId,
-        NOT: { fromId },
-        viewed: false,
-      },
-      data: { viewed: true },
-    });
-  }
-
-  async create(fromId: string, conversationId: string, content: string) {
+  async create(
+    fromId: string,
+    content: string,
+    historyConversationIds: string[],
+  ) {
     return await this.prismaService.message.create({
-      data: { fromId, content, conversationId },
+      data: {
+        content,
+        fromId,
+        historyConversations: {
+          connect: historyConversationIds.map((id) => ({ id })),
+        },
+      },
     });
   }
 }

@@ -7,6 +7,7 @@ import {
   Req,
   Sse,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { IMessageEvent } from '../../shared/interface/message-event.interface';
@@ -16,7 +17,8 @@ import { PaginationDTO } from '../../shared/dto/pagination.dto';
 import { IMessagePayload } from './interface/message-payload.interface';
 import { IRetrieveMessage } from './interface/retrieve-message.interface';
 import { IConversation } from './interface/conversation.interface';
-import { ISendMessage } from './interface/send-message.interface';
+import { IPostMessage } from './interface/post-message.interface';
+import { ISuccessBoolean } from './interface/sucess.interface';
 
 @Controller('chat')
 export class ChatController {
@@ -48,12 +50,12 @@ export class ChatController {
   }
 
   @Post('conversation/:conversationId')
-  async sendMessage(
+  async postMessage(
     @Req() req: ISignedRequest,
     @Param('conversationId') conversationId: string,
     @Body('message') message: string,
-  ): Promise<ISendMessage[]> {
-    return await this.chatService.sendMessage(
+  ): Promise<IPostMessage> {
+    return await this.chatService.postMessage(
       req.user.profileId,
       conversationId,
       message,
@@ -66,5 +68,29 @@ export class ChatController {
     @Body('toId') toId: string,
   ): Promise<IConversation> {
     return await this.chatService.createConversation(req.user.profileId, toId);
+  }
+
+  @Patch('conversation/:conversationId/delete')
+  async delete(
+    @Req() req: ISignedRequest,
+    @Param('conversationId') conversationId: string,
+  ): Promise<ISuccessBoolean> {
+    return await this.chatService.deleteConversation(
+      req.user.profileId,
+      conversationId,
+    );
+  }
+
+  @Patch('conversation/:conversationId/block')
+  async block(
+    @Req() req: ISignedRequest,
+    @Param('conversationId') conversationId: string,
+    @Body('block') block: boolean,
+  ): Promise<ISuccessBoolean> {
+    return await this.chatService.blockConversation(
+      req.user.profileId,
+      conversationId,
+      block,
+    );
   }
 }

@@ -23,17 +23,19 @@ model User {
 }
 
 model Profile {
-  id              String                  @id @default(uuid())
-  name            String
-  username        String
-  birthDate       String
-  imageProfileUrl String?
-  user            User?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  tags            Tag[]
-  conversations   ConversationOnProfile[]
-  message         Message[]
+  id                   String                @id @default(uuid())
+  name                 String
+  username             String
+  birthDate            String
+  imageProfileUrl      String?
+  user                 User?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  tags                 Tag[]
+  historyConversations HistoryConversation[]
+  messages             Message[]
+  conversations        Conversation[]
+  conversationsBlocked Conversation[]        @relation("BlockedBy")
 }
 
 model Tag {
@@ -68,33 +70,40 @@ model Address {
   updatedAt    DateTime      @updatedAt
 }
 
-model Message {
-  id             String        @id @default(uuid())
-  content        String
-  from           Profile       @relation(fields: [fromId], references: [id])
-  fromId         String
-  viewed         Boolean?      @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  conversation   Conversation? @relation(fields: [conversationId], references: [id])
-  conversationId String?
-}
+// um perfil tem muitos historicos
+// um historico tem um perfil
+// um historico tem muitas mensagens
+// um mensagem tem muitos historicos
+// uma conversa tem muitos historicos
+// um historico tem uma conversa
+// uma conversa tem muitos perfis
+// um perfil tem muitas conversas
 
 model Conversation {
-  id        String                  @id @default(uuid())
-  createdAt DateTime                @default(now())
-  updatedAt DateTime                @updatedAt
-  messages  Message[]
-  profiles  ConversationOnProfile[]
+  id                   String                @id @default(uuid())
+  participants         Profile[]
+  blockedBy            Profile[]             @relation("BlockedBy")
+  historysConversation HistoryConversation[]
 }
 
-model ConversationOnProfile {
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  profile        Profile       @relation(fields: [profileId], references: [id])
-  profileId      String
-  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+model HistoryConversation {
+  id             String       @id @default(uuid())
+  viewed         Boolean      @default(false)
+  messages       Message[]
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
   conversationId String
+  profile        Profile      @relation(fields: [profileId], references: [id])
+  profileId      String
 
-  @@id([profileId, conversationId])
+  @@index([profileId, conversationId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  from      Profile  @relation(fields: [fromId], references: [id])
+  fromId    String
+  createdAt DateTime @default(now())
+
+  historyConversations HistoryConversation[]
 }
