@@ -5,6 +5,7 @@ import { ProfileModule } from './profile/profile.module';
 import { TagModule } from './tag/tag.module';
 import { UserModule } from './user/user.module';
 import { TattooModule } from './tattoo/tattoo.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 const MODULES = [
   AuthModule,
@@ -13,6 +14,7 @@ const MODULES = [
   TagModule,
   LocationModule,
   TattooModule,
+  ConversationsModule,
 ];
 
 @Module({
