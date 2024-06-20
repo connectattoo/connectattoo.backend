@@ -17,4 +17,7 @@ export class PaginationDTO implements IPagination {
   @Min(0)
   @IsNumber()
   offset: number;
+
+  @IsOptional()
+  sort: 'asc' | 'desc';
 }
