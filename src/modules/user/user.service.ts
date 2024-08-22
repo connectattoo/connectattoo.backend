@@ -53,12 +53,12 @@ export class UserService {
   }
 
   async createArtist(userId: string, address: IAddress): Promise<void> {
-    const { geometry } = await this.mapsService.geocode(address);
+    const geocode = await this.mapsService.geocode(address);
 
     const addressCoordinates: IAddressCoordinates = {
       ...address,
-      latitude: geometry.lat,
-      longitude: geometry.lng,
+      latitude: geocode?.geometry?.lat,
+      longitude: geocode?.geometry?.lng,
     };
 
     await this.userRepository.createArtist(userId, addressCoordinates);

@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Client,
   DistanceMatrixRequest,
   GeocodeRequest,
+  Status,
   TravelMode,
   UnitSystem,
 } from '@googlemaps/google-maps-services-js';
@@ -22,9 +23,28 @@ export class MapsService {
       },
     } as GeocodeRequest);
 
+    const statusObject = {
+      [Status.ZERO_RESULTS]: new BadRequestException('Invalid address'),
+
+      [Status.NOT_FOUND]: new BadRequestException('Invalid address'),
+
+      [Status.OK]: {
+        address: geo.data.results[0].formatted_address,
+        geometry: geo.data.results[0].geometry.location,
+      },
+    };
+
+    const statusObjectValue = statusObject[geo.data.status];
+    if (statusObjectValue) {
+      if (statusObjectValue instanceof BadRequestException)
+        throw statusObjectValue;
+
+      return statusObjectValue;
+    }
+
     return {
-      address: geo.data.results[0].formatted_address,
-      geometry: geo.data.results[0].geometry.location,
+      address: null,
+      geometry: { lat: null, lng: null },
     };
   }
 
