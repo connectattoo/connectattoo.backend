@@ -9,12 +9,13 @@ import {
 } from '@googlemaps/google-maps-services-js';
 import { IDistanceMatrix } from './interface/distance-matrix.interface';
 import { IAddress } from '../../../modules/user/interfaces/address.interface';
+import { IGeocode } from './interface/geocode.interface';
 
 @Injectable()
 export class MapsService {
   constructor(private mapsClient: Client) {}
 
-  async geocode(address: IAddress) {
+  async geocode(address: IAddress): Promise<IGeocode> {
     const parsedAddress = `${address.street}, ${address.number} - ${address.city} - ${address.state}, ${address.zipCode}, ${address.country}`;
 
     const geo = await this.mapsClient.geocode({
