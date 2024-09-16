@@ -1,9 +1,10 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsAlpha, IsAlphanumeric, IsNotEmpty, IsString } from 'class-validator';
 import { IAddress } from '../interfaces/address.interface';
 
 export class CreateAddressDto implements IAddress {
   @IsNotEmpty()
   @IsString()
+  @IsAlphanumeric()
   street: string;
 
   @IsNotEmpty()
@@ -12,10 +13,12 @@ export class CreateAddressDto implements IAddress {
 
   @IsNotEmpty()
   @IsString()
+  @IsAlpha()
   city: string;
 
   @IsNotEmpty()
   @IsString()
+  @IsAlpha()
   state: string;
 
   @IsNotEmpty()
