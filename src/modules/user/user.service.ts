@@ -8,6 +8,7 @@ import { IGetConfirmed } from './interfaces/get-confirmed.interface';
 import { IGetUserAndProfileByEmail } from './interfaces/get-user-profile-by-email.interface';
 import { IAddressCoordinates } from './interfaces/address-coordinates.interface';
 import { MapsService } from '../../shared/adapters/maps/maps.service';
+import { IGeocode } from '../../shared/adapters/maps/interface/geocode.interface';
 
 @Injectable()
 export class UserService {
@@ -53,12 +54,19 @@ export class UserService {
   }
 
   async createArtist(userId: string, address: IAddress): Promise<void> {
-    const { geometry } = await this.mapsService.geocode(address);
+    let geocode: IGeocode | null = {
+      address: null,
+      geometry: { lat: null, lng: null },
+    };
+
+    if (process.env.GOOGLE_MAPS_API_KEY) {
+      geocode = await this.mapsService.geocode(address);
+    }
 
     const addressCoordinates: IAddressCoordinates = {
       ...address,
-      latitude: geometry.lat,
-      longitude: geometry.lng,
+      latitude: geocode?.geometry?.lat,
+      longitude: geocode?.geometry?.lng,
     };
 
     await this.userRepository.createArtist(userId, addressCoordinates);
